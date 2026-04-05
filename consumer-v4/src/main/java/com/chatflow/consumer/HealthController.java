@@ -39,13 +39,16 @@ import java.util.Map;
 public class HealthController {
 
     private final SqsConsumerService      consumerService;
+    private final BroadcastWorkerService  broadcastWorkerService;
     private final DbWriterService         dbWriterService;
     private final StatsAggregatorService  statsAggregator;
 
     public HealthController(SqsConsumerService     consumerService,
+                            BroadcastWorkerService broadcastWorkerService,
                             DbWriterService        dbWriterService,
                             StatsAggregatorService statsAggregator) {
-        this.consumerService = consumerService;
+        this.consumerService       = consumerService;
+        this.broadcastWorkerService = broadcastWorkerService;
         this.dbWriterService = dbWriterService;
         this.statsAggregator = statsAggregator;
     }
@@ -57,7 +60,14 @@ public class HealthController {
         // ── SQS metrics ───────────────────────────────────────────────────────
         Map<String, Object> sqs = new LinkedHashMap<>();
         sqs.put("consumed",   consumerService.getMessagesConsumed());
-        sqs.put("broadcasts", consumerService.getBroadcastCalls());
+        sqs.put("enqueued",   consumerService.getBroadcastCalls());
+
+        // ── Broadcast worker metrics (A4 Optimization 1) ─────────────────────
+        Map<String, Object> broadcast = new LinkedHashMap<>();
+        broadcast.put("enqueued",   broadcastWorkerService.getTotalEnqueued());
+        broadcast.put("sent",       broadcastWorkerService.getTotalBroadcast());
+        broadcast.put("failed",     broadcastWorkerService.getTotalFailed());
+        broadcast.put("queueDepth", broadcastWorkerService.getTotalQueueDepth());
 
         // ── DB write metrics ──────────────────────────────────────────────────
         Map<String, Object> db = new LinkedHashMap<>();
@@ -83,6 +93,7 @@ public class HealthController {
         response.put("status",    "UP");
         response.put("timestamp", Instant.now().toString());
         response.put("sqs",       sqs);
+        response.put("broadcast", broadcast);
         response.put("db",        db);
         response.put("stats",     stats);
         return response;

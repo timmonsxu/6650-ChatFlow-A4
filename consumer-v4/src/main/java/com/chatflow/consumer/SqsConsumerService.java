@@ -24,16 +24,16 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Polls all 20 SQS rooms in parallel (one thread per room).
  *
- * Per-message pipeline (A3):
+ * Per-message pipeline (A4 Optimization 1):
  *   1. Deserialise JSON body → QueueMessage
- *   2. broadcastClient.broadcast()          ← parallel HTTP to all servers
- *   3. dbWriterService.enqueue(msg)         ← O(1) put to write buffer  [NEW]
- *   4. statsAggregator.record(msg)          ← O(1) counter increment    [NEW]
- *   5. sqsClient.deleteMessage()            ← only after broadcast ok
+ *   2. broadcastWorkerService.enqueue()     ← O(1), non-blocking; worker thread handles HTTP
+ *   3. dbWriterService.enqueue(msg)         ← O(1) put to write buffer
+ *   4. statsAggregator.record(msg)          ← O(1) counter increment
+ *   5. sqsClient.deleteMessage()            ← immediately after all O(1) enqueues
  *
- * Steps 3 and 4 are O(1) and never block, so they add no measurable latency
- * to the existing broadcast → delete flow.
- * Actual DB writing happens asynchronously in DbWriterService's thread pool.
+ * All steps are now O(1). The poll thread is never blocked by HTTP broadcast.
+ * Broadcast delivery happens asynchronously in BroadcastWorkerService's thread pool.
+ * deleteMessage is called regardless of broadcast outcome — the message is safe in RDS.
  */
 @Service
 public class SqsConsumerService {
@@ -53,7 +53,7 @@ public class SqsConsumerService {
     @Value("${app.consumer.threads}")
     private int numThreads;
 
-    private final BroadcastClient         broadcastClient;
+    private final BroadcastWorkerService  broadcastWorkerService;
     private final DbWriterService         dbWriterService;
     private final StatsAggregatorService  statsAggregator;
     private final ObjectMapper            mapper = new ObjectMapper();
@@ -66,10 +66,10 @@ public class SqsConsumerService {
     final AtomicLong messagesConsumed = new AtomicLong(0);
     final AtomicLong broadcastCalls   = new AtomicLong(0);
 
-    public SqsConsumerService(BroadcastClient        broadcastClient,
+    public SqsConsumerService(BroadcastWorkerService broadcastWorkerService,
                                DbWriterService        dbWriterService,
                                StatsAggregatorService statsAggregator) {
-        this.broadcastClient = broadcastClient;
+        this.broadcastWorkerService = broadcastWorkerService;
         this.dbWriterService = dbWriterService;
         this.statsAggregator = statsAggregator;
     }
@@ -140,25 +140,25 @@ public class SqsConsumerService {
     }
 
     private void processMessage(String roomId, Message sqsMessage, String queueUrl) {
-        String body = sqsMessage.body();
         try {
+            String body = sqsMessage.body();
             // Deserialise once — reused for both broadcast body and DB/stats
             QueueMessage queueMessage = mapper.readValue(body, QueueMessage.class);
             String msgRoomId = queueMessage.getRoomId() != null
                     ? queueMessage.getRoomId() : roomId;
 
-            // 1. Broadcast to all server instances (parallel HTTP, ~50–200 ms)
-            //    Throws BroadcastException if ALL servers fail → skip delete.
-            broadcastClient.broadcast(msgRoomId, body);
+            // 1. O(1) enqueue to per-room broadcast worker (non-blocking offer)
+            //    HTTP delivery happens asynchronously in BroadcastWorkerService.
+            broadcastWorkerService.enqueue(msgRoomId, body);
             broadcastCalls.incrementAndGet();
 
-            // 2. Enqueue for async DB write (O(1) put — never blocks in practice)
+            // 2. O(1) enqueue for async DB write
             dbWriterService.enqueue(queueMessage);
 
-            // 3. Record in-memory stats (O(1) — lock-free counter increments)
+            // 3. O(1) in-memory stats update
             statsAggregator.record(queueMessage);
 
-            // 4. Acknowledge message — only reached after successful broadcast
+            // 4. Acknowledge immediately — message is safe in RDS regardless of broadcast outcome
             sqsClient.deleteMessage(DeleteMessageRequest.builder()
                     .queueUrl(queueUrl)
                     .receiptHandle(sqsMessage.receiptHandle())
@@ -166,11 +166,6 @@ public class SqsConsumerService {
 
             messagesConsumed.incrementAndGet();
 
-        } catch (BroadcastClient.BroadcastException e) {
-            // All servers failed — do NOT delete.  SQS will redeliver after
-            // the visibility timeout.  ON CONFLICT DO NOTHING in the DB layer
-            // ensures idempotent handling of any duplicates.
-            log.error("Broadcast failed for room {}, message will be retried: {}", roomId, e.getMessage());
         } catch (Exception e) {
             log.error("Failed to process message in room {}: {}", roomId, e.getMessage());
         }

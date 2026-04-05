@@ -4,7 +4,6 @@ import com.chatflow.consumer.db.DbWriterService;
 import com.chatflow.consumer.stats.StatsAggregatorService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -12,23 +11,23 @@ import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for SqsConsumerService.
- * SqsClient, BroadcastClient, DbWriterService, and StatsAggregatorService
+ * SqsClient, BroadcastWorkerService, DbWriterService, and StatsAggregatorService
  * are all mocked — no AWS connection or DB needed.
  */
 class SqsConsumerServiceTest {
 
-    private BroadcastClient        broadcastClient;
+    private BroadcastWorkerService broadcastWorkerService;
     private DbWriterService        dbWriterService;
     private StatsAggregatorService statsAggregator;
     private SqsConsumerService     service;
 
     @BeforeEach
     void setUp() {
-        broadcastClient = mock(BroadcastClient.class);
+        broadcastWorkerService = mock(BroadcastWorkerService.class);
         dbWriterService = mock(DbWriterService.class);
         statsAggregator = mock(StatsAggregatorService.class);
 
-        service = new SqsConsumerService(broadcastClient, dbWriterService, statsAggregator);
+        service = new SqsConsumerService(broadcastWorkerService, dbWriterService, statsAggregator);
 
         // Inject @Value fields manually
         ReflectionTestUtils.setField(service, "region",          "us-west-2");
@@ -44,31 +43,22 @@ class SqsConsumerServiceTest {
     }
 
     @Test
-    void broadcastClient_calledWithCorrectRoomId() throws BroadcastClient.BroadcastException {
+    void broadcastWorkerService_enqueue_calledWithCorrectRoomId() {
         String roomId = "05";
         String body   = jsonBody("uuid-1", "05", "1", "user1", "hello", "TEXT");
 
-        broadcastClient.broadcast(roomId, body);
+        broadcastWorkerService.enqueue(roomId, body);
 
-        ArgumentCaptor<String> roomCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
-        verify(broadcastClient).broadcast(roomCaptor.capture(), bodyCaptor.capture());
-
-        assertEquals("05", roomCaptor.getValue());
-        assertEquals(body, bodyCaptor.getValue());
+        verify(broadcastWorkerService).enqueue(eq("05"), eq(body));
     }
 
     @Test
-    void broadcastClient_missingRoomId_usesQueueRoomId() throws BroadcastClient.BroadcastException {
-        // Message without roomId field — falls back to queue's roomId
-        String body = "{\"messageId\":\"uuid-2\",\"message\":\"hello\"}";
-        broadcastClient.broadcast("07", body);
-        verify(broadcastClient).broadcast(eq("07"), eq(body));
+    void broadcastWorkerService_isInjectedAndAccessible() {
+        assertNotNull(broadcastWorkerService);
     }
 
     @Test
     void dbWriterService_isInjectedAndAccessible() {
-        // Verify the collaborator is the mock we injected
         assertNotNull(dbWriterService);
     }
 

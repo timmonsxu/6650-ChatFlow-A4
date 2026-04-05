@@ -94,6 +94,8 @@ scp -i $HOME\.ssh\6650-Timmons-Project.pem -r database/ ec2-user@35.92.149.159:~
 # add monitor to consumer
 scp -i $HOME\.ssh\6650-Timmons-Project.pem monitoring/monitor-consumer.sh monitoring/collect-final.sh ec2-user@35.92.149.159:~/monitoring/
 
+curl -s http://localhost:8081/health | python3 -m json.tool
+
 curl -s http://35.92.149.159:8081/health | python3 -m json.tool
 
 psql -h $RDS_HOST -U $RDS_USER -d chatflow \

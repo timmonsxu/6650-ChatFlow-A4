@@ -17,7 +17,7 @@ public class ChatClient {
     private static final String SERVER_URL    = "ws://6650A2-476604144.us-west-2.elb.amazonaws.com";
     private static final String METRICS_URL  = "http://6650A2-476604144.us-west-2.elb.amazonaws.com";
     private static final int TOTAL_MESSAGES  =
-            Integer.parseInt(System.getProperty("app.total-messages", "1800000"));
+            Integer.parseInt(System.getProperty("app.total-messages", "500000"));
     private static final int NUM_ROOMS = 20;
     // Each room gets ~25K messages total; queue capacity per room keeps memory bounded
     private static final int QUEUE_CAPACITY_PER_ROOM = 2_000;
