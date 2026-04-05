@@ -6,6 +6,7 @@ ChatFlow is a distributed real-time chat system built across three assignments:
 - A1: WebSocket server + multithreaded load test client (echo server)
 - A2: Added message queuing (AWS SQS), a Consumer service, and AWS ALB load balancing
 - A3: Database persistence, analytics Metrics API, write-behind pipeline, load testing ✓ COMPLETE
+- A4: 2 material optimizations (in-memory broadcast queue decoupling + consumer horizontal scaling) — IN PROGRESS
 
 All code is Java/Spring Boot. Infrastructure runs on AWS EC2, us-west-2.
 
@@ -232,15 +233,15 @@ Required metrics: avg response time, p95/p99 latency, throughput (req/s), error 
 
 | A4 Requirement | Status | Notes |
 |---|---|---|
-| Stable A3 base with real perf data | ✅ Done | ~1,008 msg/s, 0 failures, full test results in PROJECT_CONTEXT |
-| JMeter installed and configured | ❌ Not started | WebSocket plugin (Peter Doornbosch) needs installation; no .jmx test plans yet |
-| JMeter Baseline test (1K users, 100K calls) | ❌ Not started | Need to build .jmx for WebSocket + /metrics endpoint |
+| Stable A3 base with real perf data | ✅ Done | ~1,008 msg/s, 0 failures, full test results |
+| A4 Optimization 1: in-memory broadcast queue | ❌ Not started | See plan.md — new BroadcastWorkerService, modify SqsConsumerService |
+| A4 Optimization 2: consumer horizontal scaling | ❌ Not started | See plan.md — room-range config, 2nd consumer EC2 |
+| JMeter installed and configured | ❌ Not started | WebSocket plugin (Peter Doornbosch) needs installation |
+| JMeter Baseline test (1K users, 100K calls) | ❌ Not started | Build .jmx for WebSocket + /metrics endpoint |
 | JMeter Stress test (500 users, 200K–500K calls) | ❌ Not started | Same |
-| Optimization 1 implemented + measured | ❌ Not started | Candidate: parallel per-room message processing in pollLoop |
-| Optimization 2 implemented + measured | ❌ Not started | Candidate: application-level caching for /metrics analytics queries |
-| PDF report (max 8 pages) | ❌ Not started | Needs arch rationale, 2× optimization sections, future opts, JMeter results |
+| PDF report (max 8 pages) | ❌ Not started | Arch rationale, 2× optimization sections, JMeter results |
 
-**Biggest gap: JMeter.** Everything else (code, infra, baseline data) is ready. The entire A4 testing pipeline needs to be built from scratch around JMeter, including WebSocket plugin setup and test plan authoring.
+**See plan.md → "A4 Implementation Plan" section for complete step-by-step instructions.**
 
 ---
 
@@ -268,13 +269,13 @@ Required metrics: avg response time, p95/p99 latency, throughput (req/s), error 
 
 **sent_at is client-side timestamp.** Core queries Q1–Q3 use `sent_at BETWEEN :start AND :end`. If JMeter generates load from a machine with clock skew, range queries may return 0 results, making the metrics endpoint appear broken during A4 demos.
 
-#### Recommended Optimizations if Selected as Base
+#### Selected Optimizations for A4
 
-**Optimization 1 — Parallel per-room message processing (Consumer)**
-Change the `for (Message msg : messages)` sequential loop in `pollLoop` to `CompletableFuture.runAsync()` per message with a dedicated thread pool. This removes the broadcast-latency bottleneck (~100ms × 10 messages = 1s per poll batch) and should raise consumer throughput from ~1,000 msg/s to ~3,000–5,000 msg/s. Before/after comparison is clean and easy to measure via `sqs.consumed` rate in `/health`.
+**Optimization 1 — In-memory per-room broadcast queue (Message Queue Optimization)**
+Decouple the HTTP broadcast from the SQS polling loop. Currently `SqsConsumerService.processMessage()` calls `broadcastClient.broadcast()` which BLOCKS until all HTTP responses return (50–200ms per message). By introducing 20 per-room `LinkedBlockingQueue<BroadcastTask>` + 20 dedicated broadcast worker threads, the poll thread only does O(1) enqueue and immediately proceeds to `deleteMessage`. Expected improvement: consumer throughput from ~1,000 msg/s → 3,000+ msg/s.
 
-**Optimization 2 — Application-level caching for /metrics analytics queries**
-Add an in-memory cache (Caffeine or ConcurrentHashMap + TTL) for the three all-table analytics queries (A2 topActiveUsers, A3 topActiveRooms, A4 totalMessages). These are full-table scans with no time filter, expensive under concurrent JMeter load. A 30-second TTL cache reduces DB query load and dramatically improves p99 response time for `/metrics`. Before/after is directly measurable with JMeter's Aggregate Report on the `/metrics` endpoint.
+**Optimization 2 — Consumer horizontal scaling with room partitioning (Horizontal Scaling)**
+Add `app.sqs.room-start` / `app.sqs.room-end` config to `SqsConsumerService` so each consumer instance only polls a subset of rooms. Deploy a second EC2-Consumer-B instance. EC2-Consumer-A handles rooms 1–10, EC2-Consumer-B handles rooms 11–20. Both write to the same RDS (idempotent inserts), both broadcast to EC2-S1 and EC2-S2. Expected improvement: consumer throughput doubles to ~2,000 msg/s (measured after Opt 1 is baseline).
 
 ---
 
