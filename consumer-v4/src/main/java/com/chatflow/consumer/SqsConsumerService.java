@@ -53,6 +53,10 @@ public class SqsConsumerService {
     @Value("${app.consumer.threads}")
     private int numThreads;
 
+    /** First room this consumer instance is responsible for (1-based, e.g. 1 or 11). */
+    @Value("${app.consumer.room-start:1}")
+    private int roomStart;
+
     private final BroadcastWorkerService  broadcastWorkerService;
     private final DbWriterService         dbWriterService;
     private final StatsAggregatorService  statsAggregator;
@@ -86,11 +90,12 @@ public class SqsConsumerService {
         executor = Executors.newFixedThreadPool(numThreads);
 
         for (int i = 0; i < numThreads; i++) {
-            final int roomId = (i % NUM_ROOMS) + 1;
+            final int roomId = roomStart + i;
             executor.submit(() -> pollLoop(roomId));
         }
 
-        log.info("SqsConsumerService started: {} threads across {} rooms", numThreads, NUM_ROOMS);
+        log.info("SqsConsumerService started: {} threads, rooms {}-{}",
+                numThreads, roomStart, roomStart + numThreads - 1);
     }
 
     @PreDestroy

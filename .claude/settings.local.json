@@ -5,7 +5,11 @@
       "Bash(mvn clean:*)",
       "Bash(dir \"D:\\\\NEU\\\\2026Spring\\\\6650DistributedSystem\\\\6650-ChatFlow-A4\\\\consumer-v3\\\\src\\\\main\\\\java\\\\com\\\\chatflow\\\\consumer\")",
       "Bash(cmd /c \"dir \"\"D:\\\\NEU\\\\2026Spring\\\\6650DistributedSystem\\\\6650-ChatFlow-A4\\\\consumer-v3\\\\src\\\\main\\\\java\\\\com\\\\chatflow\\\\consumer\"\"\")",
-      "Bash(cmd /c \"dir /b \"\"D:\\\\NEU\\\\2026Spring\\\\6650DistributedSystem\\\\6650-ChatFlow-A4\\\\consumer-v3\\\\src\\\\main\\\\java\\\\com\\\\chatflow\\\\consumer\"\"\")"
+      "Bash(cmd /c \"dir /b \"\"D:\\\\NEU\\\\2026Spring\\\\6650DistributedSystem\\\\6650-ChatFlow-A4\\\\consumer-v3\\\\src\\\\main\\\\java\\\\com\\\\chatflow\\\\consumer\"\"\")",
+      "Bash(cmd /c \"dir /b \"\"D:\\\\NEU\\\\2026Spring\\\\6650DistributedSystem\\\\6650-ChatFlow-A4\"\"\")",
+      "Bash(cmd /c \"dir /b /ad \"\"D:\\\\NEU\\\\2026Spring\\\\6650DistributedSystem\\\\6650-ChatFlow-A4\"\"\")",
+      "Bash(cmd /c \"dir \"\"D:\\\\NEU\\\\2026Spring\\\\6650DistributedSystem\\\\6650-ChatFlow-A4\"\"\")",
+      "Bash(cmd /c \"dir /s /b \"\"D:\\\\NEU\\\\2026Spring\\\\6650DistributedSystem\\\\6650-ChatFlow-A4\\\\consumer-v4\\\\src\\\\main\\\\java\\\\com\\\\chatflow\\\\consumer\"\"\")"
     ]
   }
 }

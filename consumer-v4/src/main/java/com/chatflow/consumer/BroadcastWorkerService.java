@@ -14,15 +14,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * A4 Optimization 1 — In-memory per-room broadcast queue.
+ * A4 Optimization 1 — In-memory per-room broadcast queue with configurable workers.
  *
  * Problem (A3): SqsConsumerService.processMessage() calls broadcastClient.broadcast()
  * which BLOCKS ~50–200 ms waiting for HTTP responses. The poll thread can only process
  * ~10–20 messages/sec per room, limiting total throughput to ~1,000 msg/s.
  *
- * Solution: One LinkedBlockingQueue<BroadcastTask> and one dedicated worker thread per
- * room (20 total). The SQS poll thread does O(1) offer() and immediately proceeds to
- * deleteMessage. Workers handle the actual HTTP broadcast asynchronously.
+ * Solution: One LinkedBlockingQueue<BroadcastTask> per room + N dedicated worker threads
+ * per room (app.broadcast.workers-per-room, default 4). The SQS poll thread does O(1)
+ * offer() and immediately proceeds to deleteMessage. Workers handle HTTP broadcast async.
+ *
+ * Ordering note: Multiple workers per room deliver messages concurrently, so HTTP
+ * arrival order at the server is not guaranteed. This is acceptable — each message
+ * carries a client-assigned sent_at timestamp (epoch ms), allowing clients to sort
+ * on receipt. This mirrors industry practice (e.g. Discord Snowflake IDs).
  *
  * If a per-room queue is full, the broadcast is dropped (offer returns false) and
  * broadcast.failed is incremented. The SQS message is still deleted — the message
@@ -39,8 +44,8 @@ public class BroadcastWorkerService {
     @Value("${app.broadcast.queue-capacity:5000}")
     private int queueCapacity;
 
-    @Value("${app.broadcast.worker-threads:20}")
-    private int workerThreads;
+    @Value("${app.broadcast.workers-per-room:4}")
+    private int workersPerRoom;
 
     // One queue per room: index 0 = room "01", index 19 = room "20"
     private List<LinkedBlockingQueue<BroadcastTask>> roomQueues;
@@ -63,18 +68,23 @@ public class BroadcastWorkerService {
             roomQueues.add(new LinkedBlockingQueue<>(queueCapacity));
         }
 
-        int threads = Math.min(workerThreads, NUM_ROOMS);
+        // N workers share the same room queue — LinkedBlockingQueue is thread-safe.
+        // Multiple workers increase per-room throughput at the cost of delivery ordering,
+        // which is acceptable since clients sort by sent_at timestamp.
+        int totalWorkers = workersPerRoom * NUM_ROOMS;
         AtomicLong threadCounter = new AtomicLong();
-        workerPool = Executors.newFixedThreadPool(threads,
+        workerPool = Executors.newFixedThreadPool(totalWorkers,
                 r -> new Thread(r, "broadcast-worker-" + threadCounter.getAndIncrement()));
 
-        for (int i = 0; i < threads; i++) {
-            final int roomIndex = i;
-            workerPool.submit(() -> workerLoop(roomIndex));
+        for (int roomIdx = 0; roomIdx < NUM_ROOMS; roomIdx++) {
+            for (int w = 0; w < workersPerRoom; w++) {
+                final int ri = roomIdx;
+                workerPool.submit(() -> workerLoop(ri));
+            }
         }
 
-        log.info("BroadcastWorkerService started: {} worker threads, queueCapacity={} per room",
-                threads, queueCapacity);
+        log.info("BroadcastWorkerService started: {} rooms × {} workers = {} total, queueCapacity={} per room",
+                NUM_ROOMS, workersPerRoom, totalWorkers, queueCapacity);
     }
 
     @PreDestroy

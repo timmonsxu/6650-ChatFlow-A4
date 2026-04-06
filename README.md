@@ -61,13 +61,16 @@ sudo yum install tmux -y
 ssh -i $HOME\.ssh\6650-Timmons-Project.pem ec2-user@54.184.109.66
 # Server 2
 ssh -i $HOME\.ssh\6650-Timmons-Project.pem ec2-user@54.190.22.194
-# Consumer
+# Consumer 1
 ssh -i $HOME\.ssh\6650-Timmons-Project.pem ec2-user@35.92.149.159
+# Consumer 2
+ssh -i $HOME\.ssh\6650-Timmons-Project.pem ec2-user@34.220.38.121
 
 # Database
 export RDS_HOST=chatflow-db.clm2w2kwmivu.us-west-2.rds.amazonaws.com
 export RDS_USER=chatflow_user
 export RDS_PASS=Xjz15693333013!
+source ~/.bashrc
 psql -h $RDS_HOST -U $RDS_USER -d chatflow-db -c "SELECT version();"
 psql -h $RDS_HOST -U $RDS_USER -d chatflow
 ```
@@ -77,22 +80,24 @@ grep "app.db.batch-size" ~/consumer-1.0.0/application.properties
 ### 1.3 Deploy Components to EC2
 
 ```bash
-# deploy server to A
+# deploy server to S1
 scp -i $HOME\.ssh\6650-Timmons-Project.pem target/server-v2-1.0.0.jar ec2-user@54.184.109.66:~/
 
-# deploy server to B
+# deploy server to S2
 scp -i $HOME\.ssh\6650-Timmons-Project.pem target/server-v2-1.0.0.jar ec2-user@54.190.22.194:~/
 
-# deploy consumer
+# deploy consumer to C1
 scp -i $HOME\.ssh\6650-Timmons-Project.pem target/consumer-1.0.0.jar ec2-user@35.92.149.159:~/
+
+# deploy consumer to C2
+scp -i $HOME\.ssh\6650-Timmons-Project.pem target/consumer-1.0.0.jar ec2-user@34.220.38.121:~/
 
 # deploy db to server
 scp -i $HOME\.ssh\6650-Timmons-Project.pem -r database/ ec2-user@54.184.109.66:~/chatflow/
-scp -i $HOME\.ssh\6650-Timmons-Project.pem -r database/ ec2-user@54.190.22.194:~/chatflow/
-scp -i $HOME\.ssh\6650-Timmons-Project.pem -r database/ ec2-user@35.92.149.159:~/chatflow/
 
 # add monitor to consumer
 scp -i $HOME\.ssh\6650-Timmons-Project.pem monitoring/monitor-consumer.sh monitoring/collect-final.sh ec2-user@35.92.149.159:~/monitoring/
+scp -i $HOME\.ssh\6650-Timmons-Project.pem monitoring/watch-consumers.sh ec2-user@35.92.149.159:~/
 
 curl -s http://localhost:8081/health | python3 -m json.tool
 
@@ -101,7 +106,7 @@ curl -s http://35.92.149.159:8081/health | python3 -m json.tool
 psql -h $RDS_HOST -U $RDS_USER -d chatflow \
   -c "TRUNCATE TABLE messages;"
 
-scp -i $HOME\.ssh\6650-Timmons-Project.pem "ec2-user@35.92.149.159:~/consumer-test1-500k-20260403-202730.csv" D:\NEU\2026Spring\6650DistributedSystem\6650-ChatFlow-A3\load-tests\test2-stress
+scp -i $HOME\.ssh\6650-Timmons-Project.pem "ec2-user@35.92.149.159:~/consumer-test4-20260406-040458.csv" D:\NEU\2026Spring\6650DistributedSystem\6650-ChatFlow-A3\load-tests\test4
 ```
 
 ### 1.4 Run Components
@@ -111,14 +116,19 @@ scp -i $HOME\.ssh\6650-Timmons-Project.pem "ec2-user@35.92.149.159:~/consumer-te
 java -jar server-v2-1.0.0.jar
 
 # Run Consumer
-java -jar consumer-1.0.0.jar
+java -jar consumer-1.0.0.jar --app.consumer.threads=10
+java -jar consumer-1.0.0.jar --app.consumer.threads=10 --app.consumer.room-start=11
 
 # Run Client locally
 java -jar target/client-part1-1.0.0.jar
 
-java -jar target/client-part1-1.0.0.jar ws://6650A2-476604144.us-west-2.elb.amazonaws.com
-# Verify it's running
-ps aux | grep java
+# run watch-monitor on C1
+chmod +x watch-consumers.sh
+./watch-consumers.sh
+
+# record data on C1
+chmod +x ~/monitoring/monitor-consumer.sh
+
 ```
 
 ### 1.5 Verify Server is Running
