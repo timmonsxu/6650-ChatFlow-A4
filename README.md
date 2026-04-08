@@ -2,6 +2,14 @@
 
 A WebSocket-based chat application with a Spring Boot server and Java clients.
 
+---
+
+## ⚡ Quick Start (For Teammates)
+
+See **[QUICK-START.md](./QUICK-START.md)** for step-by-step instructions including AWS access, pre-test checklist (SQS + RDS cleanup), starting all components, and monitoring.
+
+---
+
 ## Project Structure
 
 ```
