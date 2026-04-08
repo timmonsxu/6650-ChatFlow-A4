@@ -7,7 +7,7 @@
 | Server 1 (S1) | t3.micro | 54.184.109.66 | 172.31.25.72 | 8080 |
 | Server 2 (S2) | t3.micro | 54.190.22.194 | 172.31.24.104 | 8080 |
 | Consumer 1 (C1) | t3.micro | 35.92.149.159 | 172.31.27.142 | 8081 · rooms 1–10 |
-| Consumer 2 (C2) | t3.micro | 34.220.38.121 | 172.31.38.86 | 8081 · rooms 11–20 |
+| Consumer 2 (C2) | t3.micro | 54.218.131.243 | 172.31.38.86 | 8081 · rooms 11–20 |
 | RDS (PostgreSQL 17) | db.t3.micro | — | chatflow-db.clm2w2kwmivu.us-west-2.rds.amazonaws.com | 5432 |
 
 **Region**: us-west-2 · **AWS Account**: 449126751631
@@ -31,7 +31,7 @@ chmod 400 ~/6650-Timmons-Project.pem   # run once on Mac/Linux
 ssh -i ~/6650-Timmons-Project.pem ec2-user@54.184.109.66   # S1
 ssh -i ~/6650-Timmons-Project.pem ec2-user@54.190.22.194   # S2
 ssh -i ~/6650-Timmons-Project.pem ec2-user@35.92.149.159   # C1
-ssh -i ~/6650-Timmons-Project.pem ec2-user@34.220.38.121   # C2
+ssh -i ~/6650-Timmons-Project.pem ec2-user@54.218.131.243   # C2
 ```
 
 ### tmux Basics (recommended — keeps processes alive after SSH disconnect)
@@ -128,7 +128,7 @@ java -jar consumer-1.0.0.jar --app.consumer.threads=10
 
 ### C2 — Consumer (rooms 11–20)
 ```bash
-ssh -i ~/6650-Timmons-Project.pem ec2-user@34.220.38.121
+ssh -i ~/6650-Timmons-Project.pem ec2-user@54.218.131.243
 tmux new -s c2
 java -jar consumer-1.0.0.jar --app.consumer.threads=10 --app.consumer.room-start=11
 # Wait for "rooms 11-20"
@@ -214,7 +214,7 @@ scp -i ~/6650-Timmons-Project.pem \
   consumer-v4/target/consumer-1.0.0.jar ec2-user@35.92.149.159:~/consumer-1.0.0.jar
 
 scp -i ~/6650-Timmons-Project.pem \
-  consumer-v4/target/consumer-1.0.0.jar ec2-user@34.220.38.121:~/consumer-1.0.0.jar
+  consumer-v4/target/consumer-1.0.0.jar ec2-user@54.218.131.243:~/consumer-1.0.0.jar
 ```
 
 ### Restart after upload
