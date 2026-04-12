@@ -72,7 +72,7 @@ ssh -i $HOME\.ssh\6650-Timmons-Project.pem ec2-user@54.190.22.194
 # Consumer 1
 ssh -i $HOME\.ssh\6650-Timmons-Project.pem ec2-user@35.92.149.159
 # Consumer 2
-ssh -i $HOME\.ssh\6650-Timmons-Project.pem ec2-user@34.220.38.121
+ssh -i $HOME\.ssh\6650-Timmons-Project.pem ec2-user@54.218.131.243
 
 # Database
 export RDS_HOST=chatflow-db.clm2w2kwmivu.us-west-2.rds.amazonaws.com
@@ -98,7 +98,7 @@ scp -i $HOME\.ssh\6650-Timmons-Project.pem target/server-v2-1.0.0.jar ec2-user@5
 scp -i $HOME\.ssh\6650-Timmons-Project.pem target/consumer-1.0.0.jar ec2-user@35.92.149.159:~/
 
 # deploy consumer to C2
-scp -i $HOME\.ssh\6650-Timmons-Project.pem target/consumer-1.0.0.jar ec2-user@34.220.38.121:~/
+scp -i $HOME\.ssh\6650-Timmons-Project.pem target/consumer-1.0.0.jar ec2-user@54.218.131.243:~/
 
 # deploy db to server
 scp -i $HOME\.ssh\6650-Timmons-Project.pem -r database/ ec2-user@54.184.109.66:~/chatflow/
