@@ -16,17 +16,14 @@ jmeter --version
 
 ### WebSocket Plugin (required)
 
-The tests use the luminis WebSocket sampler. Install it via Homebrew:
+The tests use the Peter Doornbosch WebSocket sampler. Install it via Homebrew:
 
 ```bash
 brew install jmeter-plugins-manager
 ```
 
 Then install the WebSocket sampler plugin:
-
-```bash
-$(brew --prefix jmeter)/libexec/bin/PluginsManagerCMD.sh install jpgc-websocket
-```
+Restart JMeter, then Options → Plugins Manager → Available Plugins → search "WebSocket Samplers by Peter Doornbosch" → Apply Changes and Restart.
 
 Verify the plugin jar is present in the JMeter `lib/ext/` directory:
 

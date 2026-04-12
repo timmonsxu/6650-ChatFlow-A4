@@ -4,6 +4,7 @@
   ==============================
   1000 concurrent users (300 WS writers + 700 HTTP /metrics readers)
   Duration: 5 minutes | Ramp-up: 60 s | Write:Read ratio = 30:70
+  Writes defined as: WS TEXT send → server ACK (RECEIVED) → message confirmed in DB via /metrics poll
   Reads defined as: GET /metrics?roomId=R&startTime=now-100ms&endTime=now (~5 msgs/read)
   Target 100K: both groups avg 3 s think time → 333 calls/s × 300 s = 100K total (30K writes + 70K reads)
   HikariCP: 233 /metrics calls/s × 8 connections × ~5 ms hold ≈ 9 avg connections (pool-10 safe)
@@ -21,7 +22,9 @@
         300 WS writers (TEXT msgs, reuse connection) +
         700 HTTP /metrics readers (DB reads, 100 ms window, ~5 msgs per call).
         175 calls/s × 8 parallel DB queries × ~5 ms hold ≈ 7 avg HikariCP connections.
-        Assertions check server ACKs (WS) and HTTP 200 (HTTP).
+        Write definition: WS TEXT send → RECEIVED ACK → 500 ms propagation delay →
+        GET /metrics (roomId + userId + write window) → assert message in DB response.
+        Read definition: GET /metrics 100 ms window → assert HTTP 200.
       </stringProp>
       <boolProp name="TestPlan.functional_mode">false</boolProp>
       <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
@@ -171,13 +174,17 @@ vars.put("ts", Instant.now().toString())
           <stringProp name="dataType">Text</stringProp>
         </eu.luminis.jmeter.wssampler.RequestResponseWebSocketSampler>
         <hashTree>
-          <!-- Refresh timestamp (ISO-8601 UTC) before each send -->
+          <!-- Refresh timestamp (ISO-8601 UTC) before each send; capture writeStartTime for DB verification -->
           <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor"
                               testname="Refresh Timestamp" enabled="true">
             <stringProp name="cacheKey">true</stringProp>
             <stringProp name="filename"></stringProp>
             <stringProp name="parameters"></stringProp>
-            <stringProp name="script">vars.put("ts", java.time.Instant.now().toString())</stringProp>
+            <stringProp name="script">
+long now = System.currentTimeMillis()
+vars.put("ts", java.time.Instant.ofEpochMilli(now).toString())
+vars.put("writeStartTime", String.valueOf(now))
+            </stringProp>
             <stringProp name="scriptLanguage">groovy</stringProp>
           </JSR223PreProcessor>
           <hashTree/>
@@ -193,11 +200,98 @@ vars.put("ts", Instant.now().toString())
           </ResponseAssertion>
         </hashTree>
 
-        <!-- Think time 2500–3500 ms (avg 3000 ms)
+        <!-- 500 ms delay to allow async SQS → consumer → DB write to propagate -->
+        <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer"
+                       testname="DB Write Propagation Delay (500 ms)" enabled="true">
+          <stringProp name="ConstantTimer.delay">500</stringProp>
+        </ConstantTimer>
+        <hashTree/>
+
+        <!-- Write definition: message successfully written to DB.
+             Queries /metrics scoped to this user + room + write window.
+             Assertion failure means the message was not persisted → write failed. -->
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy"
+                          testname="GET /metrics — Verify DB Write" enabled="true">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments"
+                       guiclass="HTTPArgumentsPanel" testclass="Arguments"
+                       testname="User Defined Variables" enabled="true">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="roomId" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.name">roomId</stringProp>
+                <stringProp name="Argument.value">${roomId}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="userId" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.name">userId</stringProp>
+                <stringProp name="Argument.value">${userId}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="startTime" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.name">startTime</stringProp>
+                <stringProp name="Argument.value">${writeStartTime}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="endTime" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.name">endTime</stringProp>
+                <stringProp name="Argument.value">${writeEndTime}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">${ALB_HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${ALB_PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/metrics</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <!-- writeEndTime = now (after propagation delay); used as upper bound of query window -->
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor"
+                              testname="Set Write Verification Window" enabled="true">
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">vars.put("writeEndTime", String.valueOf(System.currentTimeMillis()))</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion"
+                             testname="Assert DB Write — HTTP 200" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49587">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.custom_message">DB write check: /metrics did not return HTTP 200</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <!-- Presence of userId in response proves this user's message reached the DB -->
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion"
+                             testname="Assert DB Write — message in response" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="1">${userId}</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.custom_message">DB write check: userId=${userId} not found in /metrics response — message not persisted</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">2</intProp>
+          </ResponseAssertion>
+        </hashTree>
+
+        <!-- Think time 2000–3000 ms (avg 2500 ms; reduced by 500 ms to offset propagation delay)
              300 threads ÷ 3 s = 100 msg/s × 300 s = 30K WS calls (30% of 100K) -->
         <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer"
-                            testname="WS Think Time (2500–3500 ms)" enabled="true">
-          <stringProp name="ConstantTimer.delay">2500</stringProp>
+                            testname="WS Think Time (2000–3000 ms)" enabled="true">
+          <stringProp name="ConstantTimer.delay">2000</stringProp>
           <stringProp name="RandomTimer.range">1000</stringProp>
         </UniformRandomTimer>
         <hashTree/>

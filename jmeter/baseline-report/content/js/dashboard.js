@@ -133,7 +133,7 @@ $(document).ready(function() {
         widgets: ['zebra']
     });
 
-    var data = {"OkPercent": 99.99855416112429, "KoPercent": 0.0014458388757156901};
+    var data = {"OkPercent": 100.0, "KoPercent": 0.0};
     var dataset = [
         {
             "label" : "FAIL",
@@ -173,7 +173,7 @@ $(document).ready(function() {
     });
 
     // Creates APDEX table
-    createTable($("#apdexTable"), {"supportsControllersDiscrimination": true, "overall": {"data": [0.7431900988953791, 500, 1500, "Total"], "isController": false}, "titles": ["Apdex", "T (Toleration threshold)", "F (Frustration threshold)", "Label"], "items": [{"data": [1.0, 500, 1500, "Init Thread Variables"], "isController": false}, {"data": [1.0, 500, 1500, "WS Open Connection"], "isController": false}, {"data": [1.0, 500, 1500, "WS Send JOIN + Read ACK"], "isController": false}, {"data": [0.5842963970088375, 500, 1500, "GET /metrics (100 ms window)"], "isController": false}, {"data": [0.9988869361452841, 500, 1500, "WS Send TEXT + Read ACK"], "isController": false}]}, function(index, item){
+    createTable($("#apdexTable"), {"supportsControllersDiscrimination": true, "overall": {"data": [0.7543412873471025, 500, 1500, "Total"], "isController": false}, "titles": ["Apdex", "T (Toleration threshold)", "F (Frustration threshold)", "Label"], "items": [{"data": [1.0, 500, 1500, "Init Thread Variables"], "isController": false}, {"data": [1.0, 500, 1500, "WS Open Connection"], "isController": false}, {"data": [0.6574409762136352, 500, 1500, "GET /metrics — Verify DB Write"], "isController": false}, {"data": [1.0, 500, 1500, "WS Send JOIN + Read ACK"], "isController": false}, {"data": [0.7168598174676073, 500, 1500, "GET /metrics (100 ms window)"], "isController": false}, {"data": [0.9987310755228844, 500, 1500, "WS Send TEXT + Read ACK"], "isController": false}]}, function(index, item){
         switch(index){
             case 0:
                 item = item.toFixed(3);
@@ -187,7 +187,7 @@ $(document).ready(function() {
     }, [[0, 0]], 3);
 
     // Create statistics table
-    createTable($("#statisticsTable"), {"supportsControllersDiscrimination": true, "overall": {"data": ["Total", 69164, 1, 0.0014458388757156901, 909.7658319356864, 0, 6200, 2428.0, 5370.0, 5636.950000000001, 5958.0, 228.29190363179663, 346.36370999717786, 81.22067504942848], "isController": false}, "titles": ["Label", "#Samples", "FAIL", "Error %", "Average", "Min", "Max", "Median", "90th pct", "95th pct", "99th pct", "Transactions/s", "Received", "Sent"], "items": [{"data": ["Init Thread Variables", 300, 0, 0.0, 0.506666666666667, 0, 39, 0.0, 1.0, 1.0, 1.990000000000009, 4.991763590076374, 0.0, 0.0], "isController": false}, {"data": ["WS Open Connection", 300, 0, 0.0, 25.28666666666666, 20, 60, 25.0, 28.0, 29.0, 41.91000000000008, 4.946087644673063, 2.656590043525571, 0.9297260125053582], "isController": false}, {"data": ["WS Send JOIN + Read ACK", 300, 0, 0.0, 37.72333333333333, 31, 91, 37.0, 41.0, 43.0, 48.99000000000001, 5.021592849251783, 3.0600331425128053, 0.7299617522011316], "isController": false}, {"data": ["GET /metrics (100 ms window)", 42659, 0, 0.0, 1449.0408354626225, 10, 6200, 2845.5, 5370.0, 5636.950000000001, 5958.0, 140.83060975207158, 293.77775486633817, 68.19778809609289], "isController": false}, {"data": ["WS Send TEXT + Read ACK", 25605, 1, 0.0039054872095293887, 42.54465924624081, 30, 854, 38.0, 43.0, 45.0, 236.9900000000016, 89.00638217995245, 54.23887857455089, 13.379866260132928], "isController": false}]}, function(index, item){
+    createTable($("#statisticsTable"), {"supportsControllersDiscrimination": true, "overall": {"data": ["Total", 74805, 0, 0.0, 602.7861372902854, 0, 4635, 1631.0, 3065.9000000000015, 4169.950000000001, 4516.990000000002, 249.60293097004964, 504.21565858611723, 106.90942537917589], "isController": false}, "titles": ["Label", "#Samples", "FAIL", "Error %", "Average", "Min", "Max", "Median", "90th pct", "95th pct", "99th pct", "Transactions/s", "Received", "Sent"], "items": [{"data": ["Init Thread Variables", 300, 0, 0.0, 0.5599999999999999, 0, 15, 0.0, 1.0, 1.0, 2.0, 5.016051364365971, 0.0, 0.0], "isController": false}, {"data": ["WS Open Connection", 300, 0, 0.0, 38.68333333333332, 20, 187, 25.0, 85.0, 91.94999999999999, 98.0, 4.988609342002428, 2.6794288458020854, 0.9378975298069409], "isController": false}, {"data": ["GET /metrics — Verify DB Write", 11309, 0, 0.0, 832.0325404545047, 12, 4635, 283.0, 2232.0, 2951.0, 4353.9, 39.30461861417246, 137.05527097952228, 18.923886482455593], "isController": false}, {"data": ["WS Send JOIN + Read ACK", 300, 0, 0.0, 55.9366666666667, 31, 213, 38.0, 104.0, 106.0, 165.53000000000043, 5.013871711735803, 3.0553280743390046, 0.7291331538088712], "isController": false}, {"data": ["GET /metrics (100 ms window)", 51169, 0, 0.0, 686.55547304032, 11, 4624, 1492.0, 2870.0, 4009.7500000000036, 4466.990000000002, 170.73634616411294, 348.2516971364316, 82.806632074669], "isController": false}, {"data": ["WS Send TEXT + Read ACK", 11427, 0, 0.0, 45.773168810711724, 30, 820, 38.0, 56.0, 98.0, 144.71999999999935, 39.62150316916548, 24.144353493710213, 5.820197914644041], "isController": false}]}, function(index, item){
         switch(index){
             // Errors pct
             case 3:
@@ -217,7 +217,7 @@ $(document).ready(function() {
     }, [[0, 0]], 0, summaryTableHeader);
 
     // Create error table
-    createTable($("#errorsTable"), {"supportsControllersDiscrimination": false, "titles": ["Type of error", "Number of errors", "% in errors", "% in all samples"], "items": [{"data": ["101/Switching Protocols", 1, 100.0, 0.0014458388757156901], "isController": false}]}, function(index, item){
+    createTable($("#errorsTable"), {"supportsControllersDiscrimination": false, "titles": ["Type of error", "Number of errors", "% in errors", "% in all samples"], "items": []}, function(index, item){
         switch(index){
             case 2:
             case 3:
@@ -228,7 +228,7 @@ $(document).ready(function() {
     }, [[1, 1]]);
 
         // Create top5 errors by sampler
-    createTable($("#top5ErrorsBySamplerTable"), {"supportsControllersDiscrimination": false, "overall": {"data": ["Total", 69164, 1, "101/Switching Protocols", 1, "", "", "", "", "", "", "", ""], "isController": false}, "titles": ["Sample", "#Samples", "#Errors", "Error", "#Errors", "Error", "#Errors", "Error", "#Errors", "Error", "#Errors", "Error", "#Errors"], "items": [{"data": [], "isController": false}, {"data": [], "isController": false}, {"data": [], "isController": false}, {"data": [], "isController": false}, {"data": ["WS Send TEXT + Read ACK", 25605, 1, "101/Switching Protocols", 1, "", "", "", "", "", "", "", ""], "isController": false}]}, function(index, item){
+    createTable($("#top5ErrorsBySamplerTable"), {"supportsControllersDiscrimination": false, "overall": {"data": ["Total", 74805, 0, "", "", "", "", "", "", "", "", "", ""], "isController": false}, "titles": ["Sample", "#Samples", "#Errors", "Error", "#Errors", "Error", "#Errors", "Error", "#Errors", "Error", "#Errors", "Error", "#Errors"], "items": [{"data": [], "isController": false}, {"data": [], "isController": false}, {"data": [], "isController": false}, {"data": [], "isController": false}, {"data": [], "isController": false}, {"data": [], "isController": false}]}, function(index, item){
         return item;
     }, [[0, 0]], 0);
 
